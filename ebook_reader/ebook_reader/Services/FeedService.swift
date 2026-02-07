@@ -33,24 +33,28 @@ final public class FeedService: ObservableObject {
     
     private let urlSession: URLSession
     
-    // Dependency Injection for URL, URLSession, and ModelContext
+    // Dependency Injection for URLSession
     public init(urlSession: URLSession = .shared) {
         self.urlSession = urlSession
     }
     
-    func refreshDailyFeed(modelContext: ModelContext) async throws {
+    /// Fetches the daily feed from Gutenberg, parses it, and persists the books and daily collection to SwiftData.
+    /// - Parameter modelContext: The ModelContext to use for persistence.
+    public func refreshDailyFeed(modelContext: ModelContext) async {
         self.error = nil // Clear any previous errors
-        self.isLoading = true // Set loading state
         
-        // 2. If not found in cache or cache fetch failed, proceed with network fetch
-        guard !isLoading else { // Check again in case another task set it
+        // Prevent concurrent fetches if one is already in progress
+        guard !isLoading else {
             print("Fetch already in progress. Skipping.")
             return
         }
         
+        self.isLoading = true // Set loading state
         
         do {
-            let url = URL(string: "https://www.gutenberg.org/cache/epub/feeds/today.rss")!
+            guard let url = URL(string: "https://www.gutenberg.org/cache/epub/feeds/today.rss") else {
+                throw FeedServiceError.invalidURL
+            }
             print("Starting network fetch for \(url.absoluteString)...")
             let (data, response) = try await urlSession.data(from: url)
             
@@ -67,21 +71,32 @@ final public class FeedService: ObservableObject {
             
             let parsedBooks = try await parseXMLData(data)
             
-            // 2. Create Today's Collection
-            let today = Date()
-            // (Logic to check if today already exists in DB omitted for brevity)
-            let dailyCollection = DailyCollection(date: today)
-            modelContext.insert(dailyCollection)
+            // 2. Create Today's Collection and Upsert Books
+            let today = Calendar.current.startOfDay(for: Date()) // Use startOfDay for consistent dating
             
-            // 3. Upsert Books (The Strategy discussed previously)
+            // Fetch or create the daily collection for today
+            let collectionDescriptor = FetchDescriptor<DailyCollection>(
+                predicate: #Predicate { $0.date == today }
+            )
+            
+            let dailyCollection: DailyCollection
+            if let existing = try modelContext.fetch(collectionDescriptor).first {
+                dailyCollection = existing
+            } else {
+                dailyCollection = DailyCollection(date: today)
+                modelContext.insert(dailyCollection)
+            }
+            
+            // 3. Upsert Books
             for book in parsedBooks {
-                // Capture the book's ID outside the predicate to resolve the error.
                 let bookIDToMatch = book.id
                 let descriptor = FetchDescriptor<Book>(predicate: #Predicate { $0.id == bookIDToMatch })
                 
                 if let existingBook = try? modelContext.fetch(descriptor).first {
-                    // Link existing book
-                    dailyCollection.books.append(existingBook)
+                    // Link existing book, but only if not already linked
+                    if !dailyCollection.books.contains(where: { $0.id == existingBook.id }) {
+                        dailyCollection.books.append(existingBook)
+                    }
                 } else {
                     modelContext.insert(book)
                     dailyCollection.books.append(book)

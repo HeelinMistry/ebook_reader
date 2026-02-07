@@ -25,9 +25,9 @@
 
 /* Begin PBXFileReference section */
 		F396803D2F374130006DC47B /* ebook_reader.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = ebook_reader.xctestplan; sourceTree = "<group>"; };
-		F3C9D3462F33B91F004E1397 /* ebook_reader.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = ebook_reader.app; path = "/Users/heelinmistry/Documents/Personal Github/ebook_reader/ebook_reader/build/Debug-iphoneos/ebook_reader.app"; sourceTree = "<absolute>"; };
-		F3C9D3532F33B920004E1397 /* ebook_readerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; name = ebook_readerTests.xctest; path = "/Users/heelinmistry/Documents/Personal Github/ebook_reader/ebook_reader/build/Debug-iphoneos/ebook_reader.app/PlugIns/ebook_readerTests.xctest"; sourceTree = "<absolute>"; };
-		F3C9D35D2F33B920004E1397 /* ebook_readerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; name = ebook_readerUITests.xctest; path = "/Users/heelinmistry/Documents/Personal Github/ebook_reader/ebook_reader/build/Debug-iphoneos/ebook_readerUITests-Runner.app/PlugIns/ebook_readerUITests.xctest"; sourceTree = "<absolute>"; };
+		F39680492F37591D006DC47B /* ebook_reader.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ebook_reader.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F3BDEA692F378FBE00983E70 /* ebook_readerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ebook_readerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F3BDEA6A2F378FBE00983E70 /* ebook_readerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ebook_readerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -80,6 +80,9 @@
 				F3C9D3562F33B920004E1397 /* ebook_readerTests */,
 				F3C9D3602F33B920004E1397 /* ebook_readerUITests */,
 				F3C9D3482F33B91F004E1397 /* ebook_reader */,
+				F39680492F37591D006DC47B /* ebook_reader.app */,
+				F3BDEA692F378FBE00983E70 /* ebook_readerTests.xctest */,
+				F3BDEA6A2F378FBE00983E70 /* ebook_readerUITests.xctest */,
 			);
 			sourceTree = "<group>";
 		};
@@ -105,7 +108,7 @@
 			packageProductDependencies = (
 			);
 			productName = ebook_reader;
-			productReference = F3C9D3462F33B91F004E1397 /* ebook_reader.app */;
+			productReference = F39680492F37591D006DC47B /* ebook_reader.app */;
 			productType = "com.apple.product-type.application";
 		};
 		F3C9D3522F33B920004E1397 /* ebook_readerTests */ = {
@@ -128,7 +131,7 @@
 			packageProductDependencies = (
 			);
 			productName = ebook_readerTests;
-			productReference = F3C9D3532F33B920004E1397 /* ebook_readerTests.xctest */;
+			productReference = F3BDEA692F378FBE00983E70 /* ebook_readerTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		F3C9D35C2F33B920004E1397 /* ebook_readerUITests */ = {
@@ -151,7 +154,7 @@
 			packageProductDependencies = (
 			);
 			productName = ebook_readerUITests;
-			productReference = F3C9D35D2F33B920004E1397 /* ebook_readerUITests.xctest */;
+			productReference = F3BDEA6A2F378FBE00983E70 /* ebook_readerUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
@@ -391,10 +394,11 @@
 				DEVELOPMENT_TEAM = Q62675U78R;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "ebook-reader-Info.plist";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -423,10 +427,11 @@
 				DEVELOPMENT_TEAM = Q62675U78R;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "ebook-reader-Info.plist";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

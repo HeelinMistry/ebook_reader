@@ -12,8 +12,7 @@ struct DailyFeedView: View {
     @Environment(\.modelContext) private var modelContext
     @StateObject private var viewModel = DailyFeedViewModel()
     
-    // Fetch today's collection automatically
-    // We filter for entries where 'date' is today
+    // Fetch all daily collections, sorted by date in reverse
     @Query(sort: \DailyCollection.date, order: .reverse)
     private var collections: [DailyCollection]
     
@@ -26,7 +25,14 @@ struct DailyFeedView: View {
                         systemImage: "calendar.badge.exclamationmark",
                         description: Text("Pull to refresh to load today's books.")
                     )
-                } else {
+                } else if let errorMessage = viewModel.errorMessage {
+                    ContentUnavailableView(
+                        "Error Loading Feed",
+                        systemImage: "network.slash",
+                        description: Text(errorMessage)
+                    )
+                }
+                else {
                     // Iterate through every day found in persistent storage
                     ForEach(collections) { collection in
                         Section(header: Text(formatDate(collection.date))) {
@@ -40,16 +46,21 @@ struct DailyFeedView: View {
                 }
             }
             .navigationTitle("Gutenberg Feed")
+            .navigationDestination(for: Book.self) { book in
+                ReaderView(book: book)
+            }
             .refreshable {
-                await viewModel.fetchDailyFeed()
+                await viewModel.fetchDailyFeed(modelContext: modelContext)
             }
             .onAppear {
-                // Pass the context to VM so it can save data
-                viewModel.setContext(modelContext)
+                // Auto-fetch if no collection for today exists and not already loading
+                let today = Calendar.current.startOfDay(for: Date())
+                let hasTodayCollection = collections.contains(where: {
+                    Calendar.current.isDate($0.date, inSameDayAs: today)
+                })
                 
-                // Auto-fetch if empty
-                if collections.isEmpty {
-                    Task { await viewModel.fetchDailyFeed() }
+                if !hasTodayCollection && !viewModel.isLoading {
+                    Task { await viewModel.fetchDailyFeed(modelContext: modelContext) }
                 }
             }
             .overlay {
