@@ -145,19 +145,26 @@ class DownloadService: ObservableObject {
     }
     
     
-    // MARK: - Deletion Logic (Example)
-    /*
-    private func deleteLocalFile() {
-        guard let fileURL = book.actualLocalFileURL else { return }
+    // MARK: - Deletion Logic
+    /// Deletes the currently stored local file (HTML or EPUB) for a given book.
+    public func deleteLocalFile(for book: Book, using modelContext: ModelContext) {
+        guard let fileURL = book.actualLocalFileURL else {
+            print("No local file found to delete for book \(book.id).")
+            return
+        }
         do {
-            try FileManager.default.removeItem(at: fileURL)
-            book.localFileName = nil // Clear the stored filename
-            try? modelContext.save() // Save the change
-            print("File deleted and localFileName cleared for book ID: \(book.id)")
+            // 1. Check if file exists and remove it
+            if FileManager.default.fileExists(atPath: fileURL.path(percentEncoded: false)) {
+                try FileManager.default.removeItem(at: fileURL)
+            }
+            // 2. Clear the database reference
+            book.localFileName = nil
+            // 3. Persist the change
+            try? modelContext.save()
+            print("Successfully deleted local file for book \(book.id)")
         } catch {
-            print("Error deleting local file: \(error)")
+            print("Error deleting file: \(error.localizedDescription)")
         }
     }
-    */
 
 }

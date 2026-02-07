@@ -16,7 +16,7 @@ final public class Book: Identifiable, Equatable { // Added Equatable for easier
     @Attribute(.unique) public var id: String // Ensures uniqueness based on the Gutenberg ID
     private var title: String
     private var link: URL
-    public var ebookDescription: String? // Renamed description to ebookDescription to avoid potential namespace conflicts.
+    public var descriptionLanguage: String? // Renamed description to ebookDescription to avoid potential namespace conflicts.
 
     // Offline Logic for Book Content
     public var localFileName: String? // Stores only the filename for the main book content
@@ -66,7 +66,7 @@ final public class Book: Identifiable, Equatable { // Added Equatable for easier
 
     public var language: String {
         // Uses the new internal property name
-        guard let description = ebookDescription else { return "Unknown" }
+        guard let description = descriptionLanguage else { return "Unknown" }
         // Splits "Language: German" into ["Language", "German"]
         let components = description.components(separatedBy: ": ")
         return components.count > 1 ? components[1].trimmingCharacters(in: .whitespaces) : "Unknown"
@@ -89,7 +89,7 @@ final public class Book: Identifiable, Equatable { // Added Equatable for easier
         self.id = Int(link.lastPathComponent)?.description ?? UUID().uuidString
         self.title = title
         self.link = link
-        self.ebookDescription = description
+        self.descriptionLanguage = description
         self.localFileName = nil
         self.localCoverFileName = nil // Initialize new property
     }

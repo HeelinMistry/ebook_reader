@@ -58,18 +58,28 @@ struct ReaderView: View {
                 print("Actual Local File URL: \(url.path(percentEncoded: false))")
             }
         }
+        .toolbar {
+            if book.isDownloaded {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(role: .destructive) {
+                        downloadService.deleteLocalFile(for: book, using: modelContext)
+                    } label: {
+                        Image(systemName: "trash")
+                            .foregroundColor(.red)
+                    }
+                }
+            }
+        }
     }
-
+    
     private var downloadView: some View {
         VStack(spacing: 20) {
             Image(systemName: "book.pages")
                 .font(.system(size: 80))
                 .foregroundStyle(.tint)
-            
             Text(book.displayTitle)
                 .font(.headline)
                 .multilineTextAlignment(.center)
-            
             if isDownloading {
                 ProgressView("Fetching chapters...")
             } else {
@@ -81,7 +91,6 @@ struct ReaderView: View {
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                
                 Button("Download for Offline Reading (EPUB)") {
                     Task {
                         isDownloading = true
