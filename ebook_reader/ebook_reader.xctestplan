@@ -1,0 +1,37 @@
+{
+  "configurations" : [
+    {
+      "id" : "90E72EE0-6407-48BE-BA79-F6530B584218",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "performanceAntipatternCheckerEnabled" : true,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:ebook_reader.xcodeproj",
+      "identifier" : "F3C9D3452F33B91F004E1397",
+      "name" : "ebook_reader"
+    }
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:ebook_reader.xcodeproj",
+        "identifier" : "F3C9D3522F33B920004E1397",
+        "name" : "ebook_readerTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:ebook_reader.xcodeproj",
+        "identifier" : "F3C9D35C2F33B920004E1397",
+        "name" : "ebook_readerUITests"
+      }
+    }
+  ],
+  "version" : 1
+}
