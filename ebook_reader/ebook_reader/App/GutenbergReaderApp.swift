@@ -12,7 +12,7 @@ import SwiftData
 struct GutenbergReaderApp: App {
     var body: some Scene {
         WindowGroup {
-            DailyFeedView()
+            MainTabView()
         }
         .modelContainer(DataController.shared.container)
     }

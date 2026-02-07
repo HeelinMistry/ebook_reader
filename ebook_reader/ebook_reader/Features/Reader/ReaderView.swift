@@ -70,6 +70,7 @@ struct ReaderView: View {
                 }
             }
         }
+        .toolbar(.hidden, for: .tabBar)
     }
     
     private var downloadView: some View {
