@@ -36,6 +36,7 @@ class RSSFeedParserDelegate: NSObject, XMLParserDelegate {
             currentTitle = ""
             currentLink = ""
             currentDescription = ""
+            currentPubDate = "" // Reset for consistency
         }
     }
     
@@ -49,6 +50,9 @@ class RSSFeedParserDelegate: NSObject, XMLParserDelegate {
             currentLink += string
         case "description":
             currentDescription += string
+        // If you ever need to use pubDate for the Book model, you'd handle it here:
+        // case "pubDate":
+        //    currentPubDate += string
         default:
             break
         }
@@ -59,7 +63,7 @@ class RSSFeedParserDelegate: NSObject, XMLParserDelegate {
             // Finished parsing an item, create EBook and add to array
             parsingItem = false
             
-            // Clean up link and title
+            // Clean up link, title, and description
             let finalTitle = currentTitle.trimmingCharacters(in: .whitespacesAndNewlines)
             let finalLink = currentLink.trimmingCharacters(in: .whitespacesAndNewlines)
             let finalDescription = currentDescription.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -67,11 +71,18 @@ class RSSFeedParserDelegate: NSObject, XMLParserDelegate {
             // Attempt to create URL
             guard let linkURL = URL(string: finalLink) else {
                 print("Warning (Parser): Failed to create valid URL for item: \(finalTitle)")
-                return // Skip this item
+                // Optionally, resume with an error or continue to skip this item silently
+                // For now, we'll just skip it.
+                return
             }
             
-            // EBook is now a class (Model), instantiation is the same.
+            // Extract the book ID from the link.
+            // Example: For "https://www.gutenberg.org/ebooks/12345", lastPathComponent is "12345".
+            let derivedId = Int(linkURL.lastPathComponent)?.description ?? UUID().uuidString
+            
+            // Instantiate Book using the new designated initializer
             let book = Book(
+                id: derivedId, // Pass the derived ID
                 title: finalTitle,
                 link: linkURL,
                 description: finalDescription

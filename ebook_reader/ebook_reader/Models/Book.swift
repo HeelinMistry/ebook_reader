@@ -11,23 +11,24 @@ import SwiftUI // Import SwiftUI for potential Image-related helpers, though not
 
 @Model
 final public class Book: Identifiable, Equatable { // Added Equatable for easier testing/comparison
-
+    
     // Properties must be mutable for SwiftData, and public access is needed for model initialization/usage
     @Attribute(.unique) public var id: String // Ensures uniqueness based on the Gutenberg ID
     private var title: String
     private var link: URL
+    public var explicitAuthor: String?
     public var descriptionLanguage: String? // Renamed description to ebookDescription to avoid potential namespace conflicts.
-
+    
     // Offline Logic for Book Content
     public var localFileName: String? // Stores only the filename for the main book content
-
+    
     // Computed property to get the full local URL dynamically for the main book content.
     public var actualLocalFileURL: URL? {
         guard let fileName = localFileName else { return nil }
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         return docs.appendingPathComponent(fileName)
     }
-
+    
     // `isDownloaded` checks the existence of the file at the `actualLocalFileURL`.
     public var isDownloaded: Bool {
         guard let fileURL = actualLocalFileURL else {
@@ -36,11 +37,11 @@ final public class Book: Identifiable, Equatable { // Added Equatable for easier
         let fileExists = FileManager.default.fileExists(atPath: fileURL.path(percentEncoded: false))
         return fileExists
     }
-
+    
     // Offline Logic for Cover Image
     // Stores only the filename for the downloaded cover image
     public var localCoverFileName: String?
-
+    
     // Computed property to get the full local URL dynamically for the cover image.
     public var actualLocalCoverURL: URL? {
         guard let fileName = localCoverFileName else { return nil }
@@ -48,22 +49,26 @@ final public class Book: Identifiable, Equatable { // Added Equatable for easier
         // Store covers in a subdirectory for organization
         return docs.appendingPathComponent("covers").appendingPathComponent(fileName)
     }
-
+    
     // Relationships
     @Relationship(inverse: \DailyCollection.books) var dailyFeatures: [DailyCollection]?
-
+    
     public var displayTitle: String {
         let cleanedTitle = title.replacingOccurrences(of: ":", with: "", range: nil)
         return cleanedTitle.components(separatedBy: " by ").first ?? cleanedTitle
     }
-
+    
     public var author: String {
+        if let explicit = explicitAuthor {
+            return explicit
+        }
+        // Fallback to your old parsing logic for older records
         let parts = title.components(separatedBy: " : by ")
         if parts.count > 1 { return parts.last ?? "" }
         let otherParts = title.components(separatedBy: " by ")
         return otherParts.count > 1 ? (otherParts.last ?? "") : "Unknown Author"
     }
-
+    
     public var language: String {
         // Uses the new internal property name
         guard let description = descriptionLanguage else { return "Unknown" }
@@ -71,7 +76,7 @@ final public class Book: Identifiable, Equatable { // Added Equatable for easier
         let components = description.components(separatedBy: ": ")
         return components.count > 1 ? components[1].trimmingCharacters(in: .whitespaces) : "Unknown"
     }
-
+    
     // Helper for a cleaner UI (Optional: Add Emoji flags)
     public var languageTag: String {
         switch language.lowercased() {
@@ -80,20 +85,23 @@ final public class Book: Identifiable, Equatable { // Added Equatable for easier
         case "french":  return "🇫🇷 FR"
         case "hungarian": return "🇭🇺 HU"
         case "finnish": return "🇫🇮 FI"
+        case "spanish": return "🇪🇸 ES"
         default: return "🌐 \(language)"
         }
     }
-
-    // Initializer remains the same externally
-    public init(title: String, link: URL, description: String?) {
-        self.id = Int(link.lastPathComponent)?.description ?? UUID().uuidString
+    
+    // MARK: - Initializers
+    
+    // MODIFIED: Designated Initializer now accepts 'id' directly.
+    public init(id: String, title: String, link: URL, description: String?) {
+        self.id = id // Use the provided ID
         self.title = title
         self.link = link
         self.descriptionLanguage = description
         self.localFileName = nil
         self.localCoverFileName = nil // Initialize new property
     }
-
+    
     // Equatable conformance for @Model classes
     public static func == (lhs: Book, rhs: Book) -> Bool {
         return lhs.id == rhs.id
@@ -125,5 +133,50 @@ extension Book {
     var localEPUBURL: URL? {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         return docs.appendingPathComponent("\(id).epub3")
+    }
+    
+    // NEW: Convenience initializer for catalog CSV rows
+    convenience init(catalogRow: [String]) throws {
+        // Safety check for column count, must be at least 6 based on Gutenberg CSV format
+        guard catalogRow.count >= 6 else {
+            throw CatalogService.CatalogError.parsingFailed // Not enough columns to create a Book
+        }
+        
+        let id = catalogRow[0].replacingOccurrences(of: "\"", with: "")
+        let type = catalogRow[1].replacingOccurrences(of: "\"", with: "")
+        let titleFromCSV = catalogRow[3].replacingOccurrences(of: "\"", with: "")
+        let languageFromCSV = catalogRow[4].replacingOccurrences(of: "\"", with: "")
+        let authorsFromCSV = catalogRow[5].replacingOccurrences(of: "\"", with: "")
+        
+        // As per CatalogService, filter for English "Text" books.
+        guard type == "Text" && languageFromCSV.lowercased() == "en" else {
+            // Throw an error if the book doesn't meet the filtering criteria.
+            // `parsingFailed` can indicate that a valid Book *could not be parsed* from this row
+            // given the desired filtering.
+            throw CatalogService.CatalogError.bookCreationFailed("Row does not meet 'Text' and 'en' language criteria.")
+        }
+        
+        // Construct the internal 'title' string to be compatible with existing computed properties
+        // (displayTitle and author) which parse "Title by Author" or "Title : by Author" patterns.
+        let combinedTitleForBookModel: String
+        if authorsFromCSV.isEmpty || authorsFromCSV.lowercased() == "unknown" {
+            combinedTitleForBookModel = titleFromCSV
+        } else {
+            combinedTitleForBookModel = "\(titleFromCSV) by \(authorsFromCSV)"
+        }
+        
+        // Construct a standard Gutenberg URL for the book using its ID.
+        guard let link = URL(string: "https://www.gutenberg.org/ebooks/\(id)") else {
+            throw CatalogService.CatalogError.parsingFailed // Failed to construct URL from ID
+        }
+        
+        // Format language for `descriptionLanguage` property (e.g., "Language: English")
+        let fullLanguageName = Locale.current.localizedString(forLanguageCode: languageFromCSV) ?? languageFromCSV
+            
+            // 2. Format it
+        let descriptionLanguage = "Language: \(fullLanguageName.capitalized)"
+        // Call the new designated initializer with the processed data.
+        self.init(id: id, title: combinedTitleForBookModel, link: link, description: descriptionLanguage)
+        self.explicitAuthor = authorsFromCSV
     }
 }
