@@ -10,7 +10,6 @@ import SwiftData
 struct CatalogBrowserView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var isImporting = false
-    @State private var importProgress: Double = 0 // Placeholder for real progress
     
     // Check if we have any books at all
     @Query private var anyBooks: [Book]
@@ -21,7 +20,7 @@ struct CatalogBrowserView: View {
     
     init() {
         // Initialize Query with empty filter or sort
-        _filteredBooks = Query(sort: \Book.id)
+        _filteredBooks = Query(sort: \Book.id, order: .reverse)
     }
 
     var body: some View {
@@ -46,12 +45,6 @@ struct CatalogBrowserView: View {
                             ProgressView("Importing Database...")
                                 .padding()
                         }
-//                        else {
-//                            Button("Import Catalog (25MB)") {
-//                                startImport()
-//                            }
-//                            .buttonStyle(.borderedProminent)
-//                        }
                     }
                 } else {
                     // --- SEARCH LIST ---

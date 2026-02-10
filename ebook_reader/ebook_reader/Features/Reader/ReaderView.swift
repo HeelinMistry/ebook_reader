@@ -10,6 +10,9 @@ import SwiftData
 
 struct ReaderView: View {
     let book: Book
+    @State private var prefs = ReaderPreferences()
+    @State private var showSettings = false
+    
     @StateObject private var downloadService = DownloadService()
     @Environment(\.modelContext) private var modelContext
     @State private var isDownloading = false
@@ -20,7 +23,7 @@ struct ReaderView: View {
             if book.isDownloaded, let fileURL = book.actualLocalFileURL {
                 // Determine how to render based on file extension
                 if fileURL.pathExtension.lowercased() == "html" {
-                    WebViewReader(localURL: fileURL)
+                    WebViewReader(localURL: fileURL, book: book, prefs: prefs)
                 } else if fileURL.pathExtension.lowercased() == "epub3" {
                     // WKWebView cannot directly render EPUB.
                     // You would need a dedicated EPUB parsing/rendering solution here.
@@ -49,6 +52,10 @@ struct ReaderView: View {
                 downloadView
             }
         }
+        .sheet(isPresented: $showSettings) {
+            //                    ReaderSettingsView(prefs: prefs)
+            //                        .presentationDetents([.height(200)])
+        }
         .navigationTitle(book.displayTitle)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
@@ -70,6 +77,7 @@ struct ReaderView: View {
                 }
             }
         }
+        .toolbar(.hidden, for: .tabBar)
     }
     
     private var downloadView: some View {
@@ -104,4 +112,3 @@ struct ReaderView: View {
         .padding()
     }
 }
-

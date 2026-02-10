@@ -15,19 +15,17 @@ actor CatalogService {
         case downloadFailed
         case parsingFailed
         case bookCreationFailed(String)
+        case bookUpdateFailed(String) // NEW: Added an error for update failures
     }
 
-    private let modelContainer: ModelContainer // NEW: CatalogService now owns the ModelContainer
+    private let modelContainer: ModelContainer
 
-    // NEW: Initialize CatalogService with a ModelContainer
     init(modelContainer: ModelContainer) {
         self.modelContainer = modelContainer
     }
 
     /// Determines if we should run the import
-    // MODIFIED: Removed `context` parameter, added `async`
     func needsInitialImport() async -> Bool {
-        // NEW: Create a new ModelContext for this operation, confined to this actor.
         let context = ModelContext(modelContainer)
         let descriptor = FetchDescriptor<Book>()
         let count = (try? context.fetchCount(descriptor)) ?? 0
@@ -41,7 +39,6 @@ actor CatalogService {
     ///   - url: The URL of the CSV catalog. If nil, uses the bundled seed_catalog.csv.
     ///   - targetDailyCollectionDate: The date of an optional `DailyCollection` to which processed books will be linked.
     ///                            If provided, existing books will be fetched (not skipped) to allow linking.
-    // MODIFIED: Removed `context` parameter, changed `targetDailyCollection` to `targetDailyCollectionDate`
     func importCatalog(from url: URL? = nil, targetDailyCollectionDate: Date? = nil) async throws {
         // 1. Determine Source
         let sourceURL: URL
@@ -75,7 +72,6 @@ actor CatalogService {
         
         // 4. Switch to MainActor to interact with SwiftData
         await MainActor.run {
-            // NEW: Create a new ModelContext here, confined to the MainActor.
             let context = ModelContext(modelContainer)
             
             print("Fetching existing IDs for initial check...")
@@ -94,13 +90,14 @@ actor CatalogService {
             print("Filtering \(allRows.count) rows against \(existingIDs.count) existing books...")
             
             var insertedCount = 0
+            var updatedCount = 0 // NEW: Counter for updated books
             var linkedToDailyCollectionCount = 0
             
             // If a targetDailyCollectionDate is provided, ensure it's fetched or available in the current context
             var collectionToUpdate: DailyCollection? = nil
-            if let date = targetDailyCollectionDate { // MODIFIED: Use the date
+            if let date = targetDailyCollectionDate {
                 let fetchCollectionDescriptor = FetchDescriptor<DailyCollection>(
-                    predicate: #Predicate { $0.date == date } // MODIFIED: Use the date here
+                    predicate: #Predicate { $0.date == date }
                 )
                 // Try to fetch it from the context.
                 if let existingCollection = try? context.fetch(fetchCollectionDescriptor).first {
@@ -113,7 +110,7 @@ actor CatalogService {
                 }
             }
             
-            // 5. Process Rows: Insert new books, or fetch existing ones if needed for linking
+            // 5. Process Rows: Insert new books, or fetch existing ones if needed for linking/updating
             for row in allRows {
                 guard !row.isEmpty else { continue }
                 
@@ -122,17 +119,34 @@ actor CatalogService {
                 var bookToProcess: Book? = nil
                 
                 if existingIDs.contains(rawID) {
-                    // Book already exists.
-                    if targetDailyCollectionDate != nil { // MODIFIED: Check against date
-                        // If we need to link to a daily collection, we MUST fetch the actual Book object.
-                        // This makes the import slightly less performant for existing books
-                        // when a dailyCollectionToUpdate is specified, as individual fetches occur.
-                        let fetchDescriptor = FetchDescriptor<Book>(predicate: #Predicate { $0.id == rawID })
-                        bookToProcess = try? context.fetch(fetchDescriptor).first
-                        // If for some reason fetching failed (e.g., book ID was in existingIDs but not found),
-                        // bookToProcess will be nil and we skip this book for further processing.
+                    // Book already exists. Fetch it.
+                    let fetchDescriptor = FetchDescriptor<Book>(predicate: #Predicate { $0.id == rawID })
+                    if let existingBook = try? context.fetch(fetchDescriptor).first {
+                        bookToProcess = existingBook // Found the existing book
+                        
+                        // NEW LOGIC: If it's a full catalog import (no specific targetDailyCollectionDate),
+                        // attempt to update the existing book's details from the current catalog row.
+                        if targetDailyCollectionDate == nil {
+                            do {
+                                try existingBook.update(from: row) // Call the new update method on Book
+                                updatedCount += 1
+                            } catch CatalogError.bookCreationFailed(let reason) {
+                                // This happens if the updated row no longer meets filtering criteria (e.g., language/type changed)
+                                print("Skipping update for book ID \(rawID) due to filtering criteria change: \(reason)")
+                                bookToProcess = nil // Do not process this book further (e.g., if it was to be linked to a collection, skip it)
+                            } catch {
+                                print("Failed to update existing book ID \(rawID): \(error)")
+                                // Log the error, but continue processing other books.
+                                // If you want to halt the entire import on an update failure, rethrow the error.
+                                // throw CatalogError.bookUpdateFailed("ID \(rawID): \(error.localizedDescription)")
+                                bookToProcess = nil // If update fails, don't link it either.
+                            }
+                        }
                     } else {
-                        // If no dailyCollectionToUpdate is specified, we simply skip existing books as before (for efficiency in full catalog import).
+                        // This case should ideally not happen if existingIDs is accurate,
+                        // but if fetching by ID fails after existingIDs said it exists,
+                        // it's safer to just skip this row for further processing.
+                        print("Warning: Book ID \(rawID) found in existingIDs but failed to fetch from context. Skipping.")
                         continue
                     }
                 } else {
@@ -150,7 +164,7 @@ actor CatalogService {
                     }
                 }
                 
-                // If we have a book (either existing or newly created) and a collection to link to
+                // If we have a book (either existing or newly created/updated) and a collection to link to
                 if let book = bookToProcess, let collection = collectionToUpdate {
                     // Only add the book to the collection if it's not already present.
                     if !collection.books.contains(where: { $0.id == book.id }) {
@@ -163,8 +177,8 @@ actor CatalogService {
             // 6. Save Once at the end
             do {
                 try context.save()
-                var logMessage = "Import Success: Added \(insertedCount) new books to the catalog."
-                if targetDailyCollectionDate != nil { // MODIFIED: Check against date
+                var logMessage = "Import Success: Added \(insertedCount) new books, updated \(updatedCount) existing books." 
+                if targetDailyCollectionDate != nil {
                     logMessage += " Linked \(linkedToDailyCollectionCount) books to DailyCollection for \(collectionToUpdate?.date.formatted(date: .abbreviated, time: .omitted) ?? "unknown date")."
                 }
                 print(logMessage)

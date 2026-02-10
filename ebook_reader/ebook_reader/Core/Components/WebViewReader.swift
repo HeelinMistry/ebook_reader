@@ -1,41 +1,103 @@
-//
-//  WebViewReader.swift
-//  ebook_reader
-//
-//  Created by Heelin Mistry on 2026/02/07.
-//
-
 import SwiftUI
 import WebKit
 
 struct WebViewReader: UIViewRepresentable {
     let localURL: URL
-    
+    let book: Book
+    var prefs: ReaderPreferences
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self, book: book)
+    }
+
     func makeUIView(context: Context) -> WKWebView {
         let webView = WKWebView()
-        webView.allowsBackForwardNavigationGestures = true
+        webView.navigationDelegate = context.coordinator
+        webView.scrollView.delegate = context.coordinator
+        
+        // Allow the background to be transparent to prevent a white flash during load
+        webView.isOpaque = false
+        webView.backgroundColor = .clear
+        
+        webView.loadFileURL(localURL, allowingReadAccessTo: localURL.deletingLastPathComponent())
         return webView
     }
-    
+
     func updateUIView(_ uiView: WKWebView, context: Context) {
-        // We load the file from the Documents folder.
-        // readAccessTo is vital for security permissions.
-        let directory = localURL.deletingLastPathComponent()
-        uiView.loadFileURL(localURL, allowingReadAccessTo: directory)
-        
-        // Inject CSS to make it look like a book
+        // This handles updates to theme/font while the user is already looking at the book
+        applyStylesAndScroll(to: uiView, animate: true)
+    }
+
+    // Moved to a shared function
+    func applyStylesAndScroll(to webView: WKWebView, animate: Bool = false) {
         let css = """
-            body { 
-                font-family: -apple-system, sans-serif; 
-                line-height: 1.6; 
-                padding: 20px; 
-                font-size: 110%;
-                color: #333;
-                background-color: #fdfaf3; /* Sepia-ish */
-            }
-            img { max-width: 100%; height: auto; }
+        body {
+            background-color: \(prefs.theme.rawValue) !important;
+            color: \(prefs.theme.textColor) !important;
+            font-size: \(prefs.fontSize)px !important;
+            font-family: -apple-system, Helvetica, Arial, sans-serif !important;
+            line-height: 1.6 !important;
+            padding: 20px !important;
+        }
         """
-        let script = "var style = document.createElement('style'); style.innerHTML = '\(css)'; document.head.appendChild(style);"
-        uiView.evaluateJavaScript(script)
+        
+        let scrollPercentage = book.lastReadLocation
+        let escapedCSS = css.replacingOccurrences(of: "\n", with: "\\n").replacingOccurrences(of: "'", with: "\\'")
+
+        let js = """
+        (function() {
+            var style = document.getElementById('reader-style');
+            if (!style) {
+                style = document.createElement('style');
+                style.id = 'reader-style';
+                document.head.appendChild(style);
+            }
+            style.innerHTML = `\(escapedCSS)`;
+
+            requestAnimationFrame(function() {
+                var scrollHeight = document.body.scrollHeight;
+                var scrollOffset = scrollHeight * \(scrollPercentage);
+                window.scrollTo({
+                    top: scrollOffset,
+                    behavior: '\(animate ? "smooth" : "instant")'
+                });
+            });
+        })();
+        """
+        
+        webView.evaluateJavaScript(js, completionHandler: nil)
+    }
+
+    class Coordinator: NSObject, WKNavigationDelegate, UIScrollViewDelegate {
+        var parent: WebViewReader
+        var book: Book
+
+        init(parent: WebViewReader, book: Book) {
+            self.parent = parent
+            self.book = book
+        }
+
+        // 1. THIS IS THE KEY: Runs when the HTML is fully ready
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            parent.applyStylesAndScroll(to: webView, animate: false)
+        }
+
+        func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+            saveProgress(scrollView)
+        }
+
+        func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+            if !decelerate { saveProgress(scrollView) }
+        }
+
+        private func saveProgress(_ scrollView: UIScrollView) {
+            let percentage = scrollView.contentOffset.y / scrollView.contentSize.height
+            // Filter out edge cases
+            guard percentage >= 0 else { return }
+            
+            Task { @MainActor in
+                book.lastReadLocation = percentage
+            }
+        }
     }
 }

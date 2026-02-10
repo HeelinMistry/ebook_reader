@@ -10,10 +10,11 @@ import SwiftData
 import SwiftUI // Import SwiftUI for potential Image-related helpers, though not strictly needed here for @Model
 
 @Model
-final public class Book: Identifiable, Equatable { // Added Equatable for easier testing/comparison
+final public class Book: Identifiable, Equatable {
     
     // Properties must be mutable for SwiftData, and public access is needed for model initialization/usage
     @Attribute(.unique) public var id: String // Ensures uniqueness based on the Gutenberg ID
+    @Attribute public var lastReadLocation: Double = 0.0 // 0.0 to 1.0
     private var title: String
     private var link: URL
     public var explicitAuthor: String?
@@ -80,12 +81,16 @@ final public class Book: Identifiable, Equatable { // Added Equatable for easier
     // Helper for a cleaner UI (Optional: Add Emoji flags)
     public var languageTag: String {
         switch language.lowercased() {
-        case "english": return "🇺🇸 EN"
-        case "german":  return "🇩🇪 DE"
-        case "french":  return "🇫🇷 FR"
+        case "english":   return "🇺🇸 EN"
+        case "spanish":   return "🇪🇸 ES"
+        case "german":    return "🇩🇪 DE"
+        case "french":    return "🇫🇷 FR"
         case "hungarian": return "🇭🇺 HU"
-        case "finnish": return "🇫🇮 FI"
-        case "spanish": return "🇪🇸 ES"
+        case "finnish":   return "🇫🇮 FI"
+        case "italian":   return "🇮🇹 IT"
+        case "portuguese": return "🇵🇹 PT"
+        case "dutch": return "🇳🇱 NL"
+        case "catalan": return "🇦🇩 CA"
         default: return "🌐 \(language)"
         }
     }
@@ -172,11 +177,60 @@ extension Book {
         
         // Format language for `descriptionLanguage` property (e.g., "Language: English")
         let fullLanguageName = Locale.current.localizedString(forLanguageCode: languageFromCSV) ?? languageFromCSV
-            
-            // 2. Format it
+        
+        // 2. Format it
         let descriptionLanguage = "Language: \(fullLanguageName.capitalized)"
         // Call the new designated initializer with the processed data.
         self.init(id: id, title: combinedTitleForBookModel, link: link, description: descriptionLanguage)
         self.explicitAuthor = authorsFromCSV
+    }
+    
+    /// Updates the properties of an existing Book instance from a catalog CSV row.
+    /// This is used during an upsert operation to refresh book details from the catalog.
+    /// - Parameter catalogRow: An array of strings representing a row from the catalog CSV.
+    /// - Throws: `CatalogService.CatalogError` if the row is malformed or if the book no longer
+    ///           meets the filtering criteria (e.g., not "Text" or "en" language).
+    func update(from catalogRow: [String]) throws {
+        // Safety check for column count, must be at least 6 based on Gutenberg CSV format
+        guard catalogRow.count >= 6 else {
+            throw CatalogService.CatalogError.parsingFailed // Not enough columns to update Book
+        }
+
+        let type = catalogRow[1].replacingOccurrences(of: "\"", with: "")
+        let titleFromCSV = catalogRow[3].replacingOccurrences(of: "\"", with: "")
+        let languageFromCSV = catalogRow[4].replacingOccurrences(of: "\"", with: "")
+        let authorsFromCSV = catalogRow[5].replacingOccurrences(of: "\"", with: "")
+
+        // Maintain consistency with the original filtering logic.
+        guard type == "Text" && languageFromCSV.lowercased() == "en" else {
+            // If the updated row no longer meets criteria, we might decide to
+            // skip the update. Throwing `bookCreationFailed` signals this.
+            throw CatalogService.CatalogError.bookCreationFailed("Updated row no longer meets 'Text' and 'en' language criteria for book ID \(self.id).")
+        }
+
+        // Construct the internal 'title' string
+        let combinedTitleForBookModel: String
+        if authorsFromCSV.isEmpty || authorsFromCSV.lowercased() == "unknown" {
+            combinedTitleForBookModel = titleFromCSV
+        } else {
+            combinedTitleForBookModel = "\(titleFromCSV) by \(authorsFromCSV)"
+        }
+
+        // Construct a standard Gutenberg URL for the book using its ID.
+        guard let newLink = URL(string: "https://www.gutenberg.org/ebooks/\(self.id)") else {
+            throw CatalogService.CatalogError.parsingFailed // Failed to construct URL from ID
+        }
+
+        // Format language for `descriptionLanguage` property (e.g., "Language: English")
+        let fullLanguageName = Locale.current.localizedString(forLanguageCode: languageFromCSV) ?? languageFromCSV
+        let newDescriptionLanguage = "Language: \(fullLanguageName.capitalized)"
+
+        // Update properties
+        self.title = combinedTitleForBookModel
+        self.link = newLink
+        self.descriptionLanguage = newDescriptionLanguage
+        self.explicitAuthor = authorsFromCSV
+        // Properties like lastReadLocation, localFileName, localCoverFileName, dailyFeatures
+        // are not updated as they are user-specific or download-specific, not catalog metadata.
     }
 }

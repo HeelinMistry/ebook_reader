@@ -77,9 +77,9 @@
 			isa = PBXGroup;
 			children = (
 				F396803D2F374130006DC47B /* ebook_reader.xctestplan */,
+				F3C9D3482F33B91F004E1397 /* ebook_reader */,
 				F3C9D3562F33B920004E1397 /* ebook_readerTests */,
 				F3C9D3602F33B920004E1397 /* ebook_readerUITests */,
-				F3C9D3482F33B91F004E1397 /* ebook_reader */,
 				F39680492F37591D006DC47B /* ebook_reader.app */,
 				F3BDEA692F378FBE00983E70 /* ebook_readerTests.xctest */,
 				F3BDEA6A2F378FBE00983E70 /* ebook_readerUITests.xctest */,
