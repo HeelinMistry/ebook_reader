@@ -15,7 +15,7 @@ final public class Book: Identifiable, Equatable {
     // Properties must be mutable for SwiftData, and public access is needed for model initialization/usage
     @Attribute(.unique) public var id: String // Ensures uniqueness based on the Gutenberg ID
     @Attribute public var lastReadLocation: Double = 0.0 // 0.0 to 1.0
-    private var title: String
+    @Attribute public var title: String // Changed access from private to public for predicate access
     private var link: URL
     public var explicitAuthor: String?
     public var descriptionLanguage: String? // Renamed description to ebookDescription to avoid potential namespace conflicts.
