@@ -102,9 +102,27 @@ struct ReaderView: View {
     
     private var downloadView: some View {
         VStack(spacing: 20) {
-            Image(systemName: "book.pages")
-                .font(.system(size: 80))
-                .foregroundStyle(.tint)
+            AsyncImage(url: book.actualLocalCoverURL ?? book.coverURL) { phase in
+                if let image = phase.image {
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                } else if phase.error != nil {
+                    // Show a generic book icon if there's an error loading the image (e.g., URL invalid, network down)
+                    Image(systemName: "text.book.closed")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .padding(10)
+                        .foregroundColor(.secondary)
+                        .background(Color.gray.opacity(0.1))
+                } else {
+                    // Show a progress view while the image is loading
+                    ProgressView()
+                }
+            }
+            .frame(width: 250, height: 300) // Standard size for the cover thumbnail
+            .cornerRadius(4) // Rounded corners for aesthetics
+            .clipped()
             Text(book.displayTitle)
                 .font(.headline)
                 .multilineTextAlignment(.center)
