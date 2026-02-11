@@ -1,10 +1,12 @@
 import SwiftUI
 import WebKit
+import Observation
 
 struct WebViewReader: UIViewRepresentable {
     let localURL: URL
     let book: Book
-    var prefs: ReaderPreferences
+    @Bindable var prefs: ReaderPreferences
+    let resolvedTheme: ReaderTheme
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self, book: book)
@@ -32,9 +34,10 @@ struct WebViewReader: UIViewRepresentable {
     func applyStylesAndScroll(to webView: WKWebView, animate: Bool = false) {
         let css = """
         body {
-            background-color: \(prefs.theme.rawValue) !important;
-            color: \(prefs.theme.textColor) !important;
+            background-color: \(resolvedTheme.rawValue) !important;
+            color: \(resolvedTheme.textColor) !important;
             font-size: \(prefs.fontSize)px !important;
+            transition: background-color 0.3s ease, color 0.3s ease;
             font-family: -apple-system, Helvetica, Arial, sans-serif !important;
             line-height: 1.6 !important;
             padding: 20px !important;

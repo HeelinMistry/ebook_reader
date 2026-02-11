@@ -11,11 +11,19 @@ import SwiftData
 struct ReaderView: View {
     let book: Book
     @State private var prefs = ReaderPreferences()
+    @Environment(\.colorScheme) var colorScheme // Detects iOS Light/Dark mode
     @State private var showSettings = false
     
     @StateObject private var downloadService = DownloadService()
     @Environment(\.modelContext) private var modelContext
     @State private var isDownloading = false
+    
+    private var effectiveTheme: ReaderTheme {
+        if prefs.useSystemTheme {
+            return colorScheme == .dark ? .dark : .light
+        }
+        return prefs.theme
+    }
     
     var body: some View {
         VStack {
@@ -23,7 +31,8 @@ struct ReaderView: View {
             if book.isDownloaded, let fileURL = book.actualLocalFileURL {
                 // Determine how to render based on file extension
                 if fileURL.pathExtension.lowercased() == "html" {
-                    WebViewReader(localURL: fileURL, book: book, prefs: prefs)
+                    WebViewReader(localURL: fileURL, book: book, prefs: prefs, resolvedTheme: effectiveTheme)
+                        .ignoresSafeArea(edges: .bottom)
                 } else if fileURL.pathExtension.lowercased() == "epub3" {
                     // WKWebView cannot directly render EPUB.
                     // You would need a dedicated EPUB parsing/rendering solution here.
@@ -52,9 +61,20 @@ struct ReaderView: View {
                 downloadView
             }
         }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { showSettings.toggle() } label: {
+                    Image(systemName: "textformat.size")
+                }
+            }
+        }
         .sheet(isPresented: $showSettings) {
-            //                    ReaderSettingsView(prefs: prefs)
-            //                        .presentationDetents([.height(200)])
+            ReaderSettingsView(prefs: prefs)
+            // 1. Explicitly use PresentationDetent
+                .presentationDetents([PresentationDetent.height(250)])
+            
+            // 2. Explicitly use PresentationBackgroundInteraction
+                .presentationBackgroundInteraction(PresentationBackgroundInteraction.enabled)
         }
         .navigationTitle(book.displayTitle)
         .navigationBarTitleDisplayMode(.inline)

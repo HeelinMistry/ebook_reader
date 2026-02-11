@@ -6,7 +6,7 @@
 //
 
 import SwiftUI
-import Observation
+import Observation // Ensure Observation is imported for @Observable and related features
 
 enum ReaderTheme: String, CaseIterable {
     case light = "white"
@@ -20,24 +20,53 @@ enum ReaderTheme: String, CaseIterable {
 
 @Observable // The magic macro
 class ReaderPreferences {
-    // We manually sync with UserDefaults since @AppStorage doesn't work here
+    // Private stored properties that the @Observable macro will track.
+    // They are initialized directly from UserDefaults.
+    private var _fontSize: Int
+    private var _theme: ReaderTheme
+    private var _useSystemTheme: Bool
+    
+    // Initializer to load initial values from UserDefaults when an instance is created.
+    init() {
+        let savedFontSize = UserDefaults.standard.integer(forKey: "readerFontSize")
+        self._fontSize = savedFontSize == 0 ? 18 : savedFontSize // Default to 18
+        
+        let savedRawTheme = UserDefaults.standard.string(forKey: "readerTheme") ?? "sepia"
+        self._theme = ReaderTheme(rawValue: savedRawTheme) ?? .sepia
+        
+        self._useSystemTheme = UserDefaults.standard.bool(forKey: "useSystemTheme")
+    }
+    
+    // Public computed properties that act as the interface.
+    // They get/set the private stored properties and synchronize with UserDefaults.
     var fontSize: Int {
-        get {
-            let val = UserDefaults.standard.integer(forKey: "readerFontSize")
-            return val == 0 ? 18 : val // Default to 18
-        }
+        get { _fontSize }
         set {
-            UserDefaults.standard.set(newValue, forKey: "readerFontSize")
+            // Only update if the value has actually changed to avoid unnecessary writes/notifications.
+            if _fontSize != newValue {
+                _fontSize = newValue
+                UserDefaults.standard.set(newValue, forKey: "readerFontSize")
+            }
         }
     }
     
     var theme: ReaderTheme {
-        get {
-            let raw = UserDefaults.standard.string(forKey: "readerTheme") ?? "sepia"
-            return ReaderTheme(rawValue: raw) ?? .sepia
-        }
+        get { _theme }
         set {
-            UserDefaults.standard.set(newValue.rawValue, forKey: "readerTheme")
+            if _theme != newValue {
+                _theme = newValue
+                UserDefaults.standard.set(newValue.rawValue, forKey: "readerTheme")
+            }
+        }
+    }
+    
+    var useSystemTheme: Bool {
+        get { _useSystemTheme }
+        set {
+            if _useSystemTheme != newValue {
+                _useSystemTheme = newValue
+                UserDefaults.standard.set(newValue, forKey: "useSystemTheme")
+            }
         }
     }
 }
